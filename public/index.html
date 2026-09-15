@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="id">
+  <head>
+    <meta charset="utf-8" />
+    <meta
+      name="viewport"
+      content="width=device-width, initial-scale=1, shrink-to-fit=no"
+    />
+    <meta name="theme-color" content="#0f766e" />
+    <!--
+      manifest.json provides metadata used when your web app is added to the
+      homescreen on Android. See https://developers.google.com/web/fundamentals/engage-and-retain/web-app-manifest/
+    -->
+    <link rel="manifest" href="%PUBLIC_URL%/manifest.json" />
+    <link rel="shortcut icon" href="%PUBLIC_URL%/favicon.ico" />
+
+    <!--
+      Tailwind CDN — dipakai supaya semua class utility (bg-teal-700, rounded-lg, dst)
+      yang ada di FormValidasiATS.jsx langsung tampil tanpa setup postcss/tailwind.config.js.
+      Untuk build produksi yang lebih ringan/optimal, sebaiknya install Tailwind lewat npm
+      (lihat catatan di bagian bawah file ini), lalu hapus script CDN ini.
+    -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+      tailwind.config = {
+        theme: {
+          extend: {
+            colors: {
+              teal: {
+                50: "#f0fdfa",
+                100: "#ccfbf1",
+                200: "#99f6e4",
+                600: "#0d9488",
+                700: "#0f766e",
+                800: "#115e59",
+                900: "#134e4a",
+              },
+              stone: {
+                50: "#fafaf9",
+                100: "#f5f5f4",
+                200: "#e7e5e4",
+                300: "#d6d3d1",
+                400: "#a8a29e",
+                500: "#78716c",
+                700: "#44403c",
+                800: "#292524",
+                900: "#1c1917",
+              },
+            },
+          },
+        },
+      };
+    </script>
+
+    <!-- Reset dasar + warna latar agar konsisten dengan bg-stone-50 di komponen -->
+    <style>
+      html,
+      body {
+        margin: 0;
+        padding: 0;
+        background-color: #fafaf9;
+        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto,
+          Helvetica, Arial, sans-serif;
+        -webkit-font-smoothing: antialiased;
+        -moz-osx-font-smoothing: grayscale;
+      }
+
+      /* sembunyikan scrollbar pada baris pill navigasi bagian (.scrollbar-none) */
+      .scrollbar-none::-webkit-scrollbar {
+        display: none;
+      }
+
+      .scrollbar-none {
+        -ms-overflow-style: none;
+        scrollbar-width: none;
+      }
+    </style>
+
+    <title>Formulir Instrumen Validasi ATS</title>
+  </head>
+
+  <body>
+    <noscript> You need to enable JavaScript to run this app. </noscript>
+    <div id="root"></div>
+    <!--
+      This HTML file is a template.
+      If you open it directly in the browser, you will see an empty page.
+
+      You can add webfonts, meta tags, or analytics to this file.
+      The build step will place the bundled scripts into the <body> tag.
+
+      To begin the development, run `npm start` or `yarn start`.
+      To create a production bundle, use `npm run build` or `yarn build`.
+
+      Catatan: komponen FormValidasiATS.jsx memakai ikon dari "lucide-react".
+      Pastikan sudah terpasang: npm install lucide-react
+    -->
+  </body>
+</html>
