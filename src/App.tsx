@@ -40,7 +40,7 @@ import {
  * Ganti dengan Web App URL hasil deploy Code.gs kalau berubah.
  */
 const GOOGLE_SHEET_WEB_APP_URL =
-  "https://script.google.com/macros/s/AKfycbyDbv5wJJ5XDB6KwsWFi4SmcicfeddqS9AIz0ffeDIw-Ugz65jW1f12qCO4GJglwhiq/exec";
+  "https://script.google.com/macros/s/AKfycbyR0I-6E4kJNiX9TSr_FwSL7G6GT2mhT5uZv5glYCC8R15zO8mv7zBUx-K2z-HSi35y/exec";
 
 /* ==================================================================== */
 /*  BAGIAN 1 — FORM INPUT DATA (FormValidasiATS)                        */
