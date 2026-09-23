@@ -9,6 +9,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Check,
+  Trash2,
   User,
   GraduationCap,
   Home,
@@ -1860,6 +1861,9 @@ function DataATSApp({ defaultUrl }: DataATSAppProps) {
   const [saveError, setSaveError] = useState("");
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState("");
+  const [deleting, setDeleting] = useState(false);
+  const [deleteError, setDeleteError] = useState("");
+  const [confirmDelete, setConfirmDelete] = useState(false);
 
   const loadFromCache = useCallback(async () => {
     try {
@@ -1912,6 +1916,8 @@ function DataATSApp({ defaultUrl }: DataATSAppProps) {
       setEditData(null);
       setSaveError("");
       setDetailError("");
+      setDeleteError("");
+      setConfirmDelete(false);
       setDetailLoading(true);
       try {
         const res = await fetch(
@@ -1940,6 +1946,8 @@ function DataATSApp({ defaultUrl }: DataATSAppProps) {
     setEditData(null);
     setSaveError("");
     setDetailError("");
+    setDeleteError("");
+    setConfirmDelete(false);
   };
 
   const startEdit = () => {
@@ -2010,6 +2018,36 @@ function DataATSApp({ defaultUrl }: DataATSAppProps) {
       );
     } finally {
       setSaving(false);
+    }
+  };
+
+  const handleDelete = async () => {
+    if (!selected) return;
+    setDeleting(true);
+    setDeleteError("");
+    try {
+      const payload = { action: "delete", id: selected.id };
+      const res = await fetch(scriptUrl, {
+        method: "POST",
+        headers: { "Content-Type": "text/plain;charset=utf-8" },
+        body: JSON.stringify(payload),
+      });
+      const result = await res.json().catch(() => null);
+      if (result && result.status === "error")
+        throw new Error(result.message || "Gagal menghapus data.");
+
+      await idbDeleteRecords([selected.id]);
+      setRecords((prev) => prev.filter((r) => r.id !== selected.id));
+      setConfirmDelete(false);
+      closeDrawer();
+    } catch (err: any) {
+      setDeleteError(
+        "Gagal menghapus dari Google Sheet (" +
+          (err && err.message ? err.message : "kesalahan tidak diketahui") +
+          ")."
+      );
+    } finally {
+      setDeleting(false);
     }
   };
 
@@ -2368,17 +2406,30 @@ function DataATSApp({ defaultUrl }: DataATSAppProps) {
               </div>
               <div style={{ display: "flex", gap: 6, flexShrink: 0 }}>
                 {!editData && (
-                  <button
-                    className="ats-btn"
-                    onClick={startEdit}
-                    disabled={detailLoading}
-                    style={{
-                      ...styles.editBtn,
-                      opacity: detailLoading ? 0.5 : 1,
-                    }}
-                  >
-                    <PenLine size={13} /> Edit
-                  </button>
+                  <>
+                    <button
+                      className="ats-btn"
+                      onClick={startEdit}
+                      disabled={detailLoading}
+                      style={{
+                        ...styles.editBtn,
+                        opacity: detailLoading ? 0.5 : 1,
+                      }}
+                    >
+                      <PenLine size={13} /> Edit
+                    </button>
+                    <button
+                      className="ats-btn"
+                      onClick={() => setConfirmDelete(true)}
+                      disabled={detailLoading}
+                      style={{
+                        ...styles.deleteBtn,
+                        opacity: detailLoading ? 0.5 : 1,
+                      }}
+                    >
+                      <Trash2 size={13} /> Hapus
+                    </button>
+                  </>
                 )}
                 <button
                   className="ats-btn"
@@ -2411,6 +2462,53 @@ function DataATSApp({ defaultUrl }: DataATSAppProps) {
                     style={{ flexShrink: 0 }}
                   />
                   <span>{saveError}</span>
+                </div>
+              )}
+
+              {deleteError && (
+                <div style={styles.saveErrorBox}>
+                  <AlertCircle
+                    size={14}
+                    color="#B3261E"
+                    style={{ flexShrink: 0 }}
+                  />
+                  <span>{deleteError}</span>
+                </div>
+              )}
+
+              {confirmDelete && (
+                <div style={styles.confirmBox}>
+                  <p style={styles.confirmText}>
+                    Hapus data <strong>{selected.namaLengkap || "ini"}</strong>{" "}
+                    secara permanen dari Google Sheet? Tindakan ini tidak bisa
+                    dibatalkan.
+                  </p>
+                  <div style={{ display: "flex", gap: 8, marginTop: 10 }}>
+                    <button
+                      className="ats-btn"
+                      onClick={() => setConfirmDelete(false)}
+                      disabled={deleting}
+                      style={styles.cancelBtn}
+                    >
+                      Batal
+                    </button>
+                    <button
+                      className="ats-btn"
+                      onClick={handleDelete}
+                      disabled={deleting}
+                      style={styles.confirmDeleteBtn}
+                    >
+                      {deleting ? (
+                        <>
+                          <RefreshCw size={14} className="spin" /> Menghapus...
+                        </>
+                      ) : (
+                        <>
+                          <Trash2 size={14} /> Ya, Hapus
+                        </>
+                      )}
+                    </button>
+                  </div>
                 </div>
               )}
 
@@ -2861,6 +2959,47 @@ const styles: Record<string, React.CSSProperties> = {
     background: "#EAF2F0",
     color: "#1F4B43",
     fontSize: 12,
+    fontWeight: 700,
+    cursor: "pointer",
+  },
+  deleteBtn: {
+    display: "flex",
+    alignItems: "center",
+    gap: 5,
+    padding: "7px 11px",
+    borderRadius: 8,
+    border: "1px solid #B3261E",
+    background: "#FBEAEA",
+    color: "#B3261E",
+    fontSize: 12,
+    fontWeight: 700,
+    cursor: "pointer",
+  },
+  confirmBox: {
+    background: "#FFF7F5",
+    border: "1px solid #F0C6C6",
+    borderRadius: 10,
+    padding: "12px 14px",
+    marginBottom: 14,
+  },
+  confirmText: {
+    fontSize: 12.5,
+    color: "#7A2020",
+    margin: 0,
+    lineHeight: 1.5,
+  },
+  confirmDeleteBtn: {
+    flex: 2,
+    display: "flex",
+    alignItems: "center",
+    justifyContent: "center",
+    gap: 6,
+    padding: "9px 0",
+    borderRadius: 9,
+    border: "none",
+    background: "#B3261E",
+    color: "#FFFFFF",
+    fontSize: 13,
     fontWeight: 700,
     cursor: "pointer",
   },
