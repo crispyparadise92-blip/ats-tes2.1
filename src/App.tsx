@@ -40,7 +40,7 @@ import {
  * Ganti dengan Web App URL hasil deploy Code.gs kalau berubah.
  */
 const GOOGLE_SHEET_WEB_APP_URL =
-  "https://script.google.com/macros/s/AKfycbxcdgfvU1pCsVuL84tKwUJi7fKfTPfniv31rhI2TeeQ9wAiOf0IdRpW5CMvcezpccxi/exec";
+  "https://script.google.com/macros/s/AKfycbxUPQDPcsjaVdGPi7ddsAeIRQPWb5N-ycL0Cg7V1ehP74PajEz_7P7N303sb08TAiUP/exec";
 
 /* ==================================================================== */
 /*  BAGIAN 1 — FORM INPUT DATA (FormValidasiATS)                        */
@@ -1762,6 +1762,82 @@ function buildUrl(baseUrl: string, params: Record<string, string>) {
   return `${baseUrl}${sep}${query}`;
 }
 
+const IDB_NAME = "ats-db";
+const IDB_VERSION = 1;
+const IDB_STORE_RECORDS = "records";
+const IDB_STORE_META = "meta";
+
+function openIdb(): Promise<IDBDatabase> {
+  return new Promise((resolve, reject) => {
+    const req = indexedDB.open(IDB_NAME, IDB_VERSION);
+    req.onupgradeneeded = () => {
+      const db = req.result;
+      if (!db.objectStoreNames.contains(IDB_STORE_RECORDS)) {
+        db.createObjectStore(IDB_STORE_RECORDS, { keyPath: "id" });
+      }
+      if (!db.objectStoreNames.contains(IDB_STORE_META)) {
+        db.createObjectStore(IDB_STORE_META, { keyPath: "key" });
+      }
+    };
+    req.onsuccess = () => resolve(req.result);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+async function idbGetAllRecords(): Promise<Record<string, any>[]> {
+  const db = await openIdb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(IDB_STORE_RECORDS, "readonly");
+    const req = tx.objectStore(IDB_STORE_RECORDS).getAll();
+    req.onsuccess = () => resolve(req.result || []);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+async function idbPutRecords(records: Record<string, any>[]): Promise<void> {
+  if (!records.length) return;
+  const db = await openIdb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(IDB_STORE_RECORDS, "readwrite");
+    const store = tx.objectStore(IDB_STORE_RECORDS);
+    records.forEach((r) => store.put(r));
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+async function idbDeleteRecords(ids: string[]): Promise<void> {
+  if (!ids.length) return;
+  const db = await openIdb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(IDB_STORE_RECORDS, "readwrite");
+    const store = tx.objectStore(IDB_STORE_RECORDS);
+    ids.forEach((id) => store.delete(id));
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
+async function idbGetMeta(key: string): Promise<number> {
+  const db = await openIdb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(IDB_STORE_META, "readonly");
+    const req = tx.objectStore(IDB_STORE_META).get(key);
+    req.onsuccess = () => resolve(req.result ? req.result.value : 0);
+    req.onerror = () => reject(req.error);
+  });
+}
+
+async function idbSetMeta(key: string, value: number): Promise<void> {
+  const db = await openIdb();
+  return new Promise((resolve, reject) => {
+    const tx = db.transaction(IDB_STORE_META, "readwrite");
+    tx.objectStore(IDB_STORE_META).put({ key, value });
+    tx.oncomplete = () => resolve();
+    tx.onerror = () => reject(tx.error);
+  });
+}
+
 interface DataATSAppProps {
   defaultUrl: string;
 }
@@ -1785,28 +1861,46 @@ function DataATSApp({ defaultUrl }: DataATSAppProps) {
   const [detailLoading, setDetailLoading] = useState(false);
   const [detailError, setDetailError] = useState("");
 
-  const loadData = useCallback(async (url: string) => {
+  const loadFromCache = useCallback(async () => {
+    try {
+      const cached = await idbGetAllRecords();
+      if (cached.length > 0) setRecords(cached);
+    } catch {
+      // IndexedDB gagal/tidak tersedia — abaikan, syncData tetap jalan
+    }
+  }, []);
+
+  const syncData = useCallback(async (url: string) => {
     if (!url) return;
     setLoading(true);
     setError("");
     try {
-      const res = await fetch(buildUrl(url, { mode: "list" }));
+      const metaKey = "lastSyncTime:" + url;
+      const since = await idbGetMeta(metaKey);
+
+      const res = await fetch(
+        buildUrl(url, { mode: "sync", since: String(since) })
+      );
       if (!res.ok) throw new Error("Status " + res.status);
       const json = await res.json();
       if (json && json.status === "error")
-        throw new Error(json.message || "Gagal memuat data.");
-      const rows = Array.isArray(json) ? json : json.data || [];
-      if (!Array.isArray(rows)) throw new Error("Format data tidak dikenali");
-      setRecords(rows);
+        throw new Error(json.message || "Gagal sinkron data.");
+
+      const updated: Record<string, any>[] = json.updated || [];
+      const deletedIds: string[] = json.deletedIds || [];
+
+      if (updated.length > 0) await idbPutRecords(updated);
+      if (deletedIds.length > 0) await idbDeleteRecords(deletedIds);
+      await idbSetMeta(metaKey, json.serverTime || Date.now());
+
+      setRecords(await idbGetAllRecords());
       setUsingSample(false);
     } catch (e: any) {
       setError(
-        "Gagal memuat data dari Apps Script (" +
+        "Gagal sinkron dari Apps Script (" +
           (e && e.message ? e.message : "kesalahan tidak diketahui") +
           ")."
       );
-      setRecords([]);
-      setUsingSample(false);
     } finally {
       setLoading(false);
     }
@@ -1895,6 +1989,14 @@ function DataATSApp({ defaultUrl }: DataATSAppProps) {
           updated[key] = updated[key].join(" ; ");
         }
       });
+      await idbPutRecords([
+        {
+          id: updated.id,
+          namaLengkap: updated.namaLengkap,
+          kabupatenKota: updated.kabupatenKota,
+          kecamatan: updated.kecamatan,
+        },
+      ]);
       setRecords((prev) =>
         prev.map((r) => (r.id === selected.id ? updated : r))
       );
@@ -1912,8 +2014,12 @@ function DataATSApp({ defaultUrl }: DataATSAppProps) {
   };
 
   useEffect(() => {
-    if (scriptUrl) loadData(scriptUrl);
-  }, [scriptUrl, loadData]);
+    if (!scriptUrl) return;
+    (async () => {
+      await loadFromCache(); // tampilkan data lama dari IndexedDB dulu (instan)
+      await syncData(scriptUrl); // lalu tarik perubahan terbaru dari server
+    })();
+  }, [scriptUrl, loadFromCache, syncData]);
 
   const kabupatenOptions = useMemo(() => {
     const set = new Set(records.map((r) => r.kabupatenKota).filter(Boolean));
@@ -2026,7 +2132,7 @@ function DataATSApp({ defaultUrl }: DataATSAppProps) {
           </button>
           <button
             className="ats-btn"
-            onClick={() => loadData(scriptUrl)}
+            onClick={() => syncData(scriptUrl)}
             style={styles.iconBtn}
             aria-label="Muat ulang data"
           >
