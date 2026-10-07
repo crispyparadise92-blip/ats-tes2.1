@@ -32,6 +32,7 @@ import {
   Link2,
   FileText,
   BarChart3,
+  ArrowLeft,
 } from "lucide-react";
 
 /**
@@ -42,6 +43,8 @@ import {
  */
 const GOOGLE_SHEET_WEB_APP_URL =
   "https://script.google.com/macros/s/AKfycbxUPQDPcsjaVdGPi7ddsAeIRQPWb5N-ycL0Cg7V1ehP74PajEz_7P7N303sb08TAiUP/exec";
+
+const BACK_URL = "https://ajappai-v1.vercel.app/";
 
 /* ==================================================================== */
 /*  BAGIAN 1 — FORM INPUT DATA (FormValidasiATS)                        */
@@ -3083,6 +3086,14 @@ export default function AppATS() {
   return (
     <div>
       <nav className="flex items-center gap-1.5 bg-white border-b border-stone-200 px-3 sm:px-6 py-2">
+        <button
+          onClick={() => {
+            window.location.href = BACK_URL;
+          }}
+          className="flex items-center gap-1.5 rounded-lg border border-stone-300 px-3 py-2 text-sm font-medium text-stone-700 hover:bg-stone-100 transition mr-1"
+        >
+          <ArrowLeft size={15} /> Kembali
+        </button>
         <button
           onClick={() => setTab("input")}
           className={`flex items-center gap-1.5 rounded-lg px-3 py-2 text-sm font-medium transition ${
