@@ -3088,7 +3088,13 @@ export default function AppATS() {
       <nav className="flex items-center gap-1.5 bg-white border-b border-stone-200 px-3 sm:px-6 py-2">
         <button
           onClick={() => {
-            window.location.href = BACK_URL;
+            if (window.parent !== window) {
+              // Sedang di dalam iframe portal: minta portal yang menutup iframe
+              window.parent.postMessage({ type: "ATS_KEMBALI" }, "*");
+            } else {
+              // Dibuka langsung (bukan lewat portal)
+              window.location.href = BACK_URL;
+            }
           }}
           className="flex items-center gap-1.5 rounded-lg border border-stone-300 px-3 py-2 text-sm font-medium text-stone-700 hover:bg-stone-100 transition mr-1"
         >
